@@ -1,0 +1,80 @@
+
+const express = require('express')
+const dotenv = require('dotenv')
+const connectDB = require('./config/dp')
+const mongoose = require('mongoose')
+const morgan = require('morgan')
+const exphbr = require('express-handlebars')
+const session = require('express-session')
+const passport = require('passport')
+const path = require('path')
+const MongoStore = require('connect-mongo')
+const methodOverride = require('method-override')
+
+
+// load config
+dotenv.config({ path: './config/config.env' })
+
+// Passport config
+require('./config/passport')(passport)
+require('./config/facbook')(passport)
+
+connectDB()
+
+const app = express()
+
+// Body Parser
+app.use(express.urlencoded({extended: false}))
+app.use(express.json())
+
+// Method Override
+app.use(methodOverride(function (req, res) {
+    if (req.body && typeof req.body === 'object' && '_method' in req.body) {
+      // look in urlencoded POST bodies and delete it
+      let method = req.body._method
+      delete req.body._method
+      return method
+    }
+  }))
+
+//logging
+if (process.env.NODE_ENV == 'development') {
+    app.use(morgan('dev'))    
+}
+
+// handelbars helpers
+const {formatDate, truncate, stripTags, editIcon, select} = require('./helpers/hbs')
+
+// Handlebars middleware
+app.engine('.hbs', exphbr.engine({ helpers: {formatDate, truncate, stripTags, editIcon, select},
+     defaultLayout: 'main', extname: '.hbs' }))
+app.set('view engine', '.hbs')
+
+// Session
+app.use(session({
+    resave: false,
+    saveUninitialized: false,
+    secret: 'keyboard cat',
+    store: MongoStore.create({ mongoUrl: process.env.MONGO_URL })
+}))
+
+// Passport middleware
+app.use(passport.initialize())
+app.use(passport.session())
+
+// Set global var
+app.use((reg, res, next) => {
+    res.locals.user = reg.user || null
+    next()    
+})
+
+// Routes
+app.use('/', require('./routes/index'))
+app.use('/auth', require('./routes/auth'))
+app.use('/stories', require('./routes/stories'))
+
+// Static Folder
+app.use(express.static(path.join(__dirname, 'public')))
+
+const PORT = process.env.PORT || 5000
+app.listen(PORT, () => console.log(`server running in ${process.env.NODE_ENV} mode at port ${PORT}`))
