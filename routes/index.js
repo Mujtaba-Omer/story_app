@@ -8,7 +8,7 @@ const Story = require('../models/Story')
 // @route GET /
 router.get('/', ensureGuest, (reg, res) => {
     console.log(reg.user)
-    res.render('Loggin', { layout:'loggin' })
+    res.render('loggin', { layout:'loggin' })
 })
 
 // @disc DASHBOARD / Landing page
